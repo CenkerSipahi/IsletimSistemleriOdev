@@ -1,0 +1,13 @@
+ALGORITMA: SJF Preemptive
+--------------------------------------------------
+a) Zaman Tablosu
+Process	Baslangic	Bitis	Burst
+[P3]	5,0		7,0	2
+[P2]	2,0		9,0	5
+[P1]	0,0		17,0	10
+--------------------------------------------------
+b) Bekleme Suresi (WT) -> Ort: 3,0017, Max: 7,0020
+c) Turnaround Time (TAT) -> Ort: 8,6683, Max: 17,0020
+d) Throughput -> T=50:3, T=100:3, T=150:3, T=200:3
+e) CPU Verimliligi: %99,98
+f) Toplam Baglam Degistirme (CS): 2

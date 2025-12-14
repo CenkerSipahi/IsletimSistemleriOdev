@@ -1,0 +1,13 @@
+ALGORITMA: Priority Non-Preemptive
+--------------------------------------------------
+a) Zaman Tablosu
+Process	Baslangic	Bitis	Burst
+[P1]	0,0		10,0	10
+[P2]	10,0		15,0	5
+[P3]	15,0		17,0	2
+--------------------------------------------------
+b) Bekleme Suresi (WT) -> Ort: 6,0010, Max: 10,0020
+c) Turnaround Time (TAT) -> Ort: 11,6677, Max: 13,0010
+d) Throughput -> T=50:3, T=100:3, T=150:3, T=200:3
+e) CPU Verimliligi: %99,98
+f) Toplam Baglam Degistirme (CS): 2
