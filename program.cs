@@ -1,4 +1,4 @@
-﻿#nullable disable // Null uyarılarını kapatır (Sarı uyarıları görmezsin)
+﻿#nullable disable
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -8,7 +8,6 @@ using System.Threading;
 
 namespace IsletimSistemleriOdev
 {
-    // --- SÜREÇ (PROCESS) SINIFI ---
     public class Process
     {
         public string ID { get; set; }
@@ -32,58 +31,63 @@ namespace IsletimSistemleriOdev
     {
         static void Main(string[] args)
         {
-            // CSV Dosya Adı
-            string dosyaYolu = "veri.csv"; 
-            
-            List<Process> hamListe = new List<Process>();
+            string[] dosyalar = { "case1.txt", "case2.txt" };
 
-            // Dosya Okuma
-            if (File.Exists(dosyaYolu))
+            Console.WriteLine("--- OTOMATİK HESAPLAMA BAŞLATILIYOR ---");
+
+            foreach (var dosyaYolu in dosyalar)
             {
-                hamListe = CSVOku(dosyaYolu);
-                Console.WriteLine($"Dosya okundu. Süreç sayisi: {hamListe.Count}");
+                Console.WriteLine($"\n>> İŞLENİYOR: {dosyaYolu}...");
+
+                if (!File.Exists(dosyaYolu))
+                {
+                    Console.WriteLine($"HATA: {dosyaYolu} bulunamadı! Bu dosya atlanıyor.");
+                    continue;
+                }
+
+                List<Process> hamListe = CSVOku(dosyaYolu);
+                Console.WriteLine($"   Veri okundu. Süreç sayısı: {hamListe.Count}");
+
+                string klasorAdi = "Sonuclar_" + Path.GetFileNameWithoutExtension(dosyaYolu);
+
+                Thread t1 = new Thread(() => Run_FCFS(ListeKopyala(hamListe), klasorAdi));
+                Thread t2 = new Thread(() => Run_Preemptive_Simulation(ListeKopyala(hamListe), 1, klasorAdi)); 
+                Thread t3 = new Thread(() => Run_RoundRobin(ListeKopyala(hamListe), 5, klasorAdi)); 
+                Thread t4 = new Thread(() => Run_NonPreemptive_Simulation(ListeKopyala(hamListe), 1, klasorAdi)); 
+                Thread t5 = new Thread(() => Run_Preemptive_Simulation(ListeKopyala(hamListe), 2, klasorAdi)); 
+                Thread t6 = new Thread(() => Run_NonPreemptive_Simulation(ListeKopyala(hamListe), 2, klasorAdi)); 
+
+                t1.Start(); t2.Start(); t3.Start(); t4.Start(); t5.Start(); t6.Start();
+
+                t1.Join(); t2.Join(); t3.Join(); t4.Join(); t5.Join(); t6.Join();
+
+                Console.WriteLine($"   TAMAMLANDI -> Raporlar '{klasorAdi}' klasörüne kaydedildi.");
             }
-            else
-            {
-                Console.WriteLine("CSV bulunamadi, TEST verisi kullaniliyor.");
-                hamListe.Add(new Process { ID = "P1", ArrivalTime = 0, BurstTime = 10, Priority = 3, RemainingTime = 10 });
-                hamListe.Add(new Process { ID = "P2", ArrivalTime = 2, BurstTime = 5, Priority = 1, RemainingTime = 5 });
-                hamListe.Add(new Process { ID = "P3", ArrivalTime = 5, BurstTime = 2, Priority = 2, RemainingTime = 2 });
-            }
 
-            // --- TÜM ALGORİTMALARIN EŞ ZAMANLI ÇALIŞTIRILMASI (THREADING) ---
-            Console.WriteLine("\n--- TUM ALGORITMALAR CALISTIRILIYOR (THREADING) ---\n");
-
-            Thread t1 = new Thread(() => Run_FCFS(ListeKopyala(hamListe)));
-            Thread t2 = new Thread(() => Run_Preemptive_Simulation(ListeKopyala(hamListe), 1)); // SJF Preemptive
-            Thread t3 = new Thread(() => Run_RoundRobin(ListeKopyala(hamListe), 5)); // RR Quantum=5
-            Thread t4 = new Thread(() => Run_NonPreemptive_Simulation(ListeKopyala(hamListe), 1)); // SJF Non-Preemptive
-            Thread t5 = new Thread(() => Run_Preemptive_Simulation(ListeKopyala(hamListe), 2)); // Priority Preemptive
-            Thread t6 = new Thread(() => Run_NonPreemptive_Simulation(ListeKopyala(hamListe), 2)); // Priority Non-Preemptive
-
-            t1.Start(); t2.Start(); t3.Start(); t4.Start(); t5.Start(); t6.Start();
-            t1.Join(); t2.Join(); t3.Join(); t4.Join(); t5.Join(); t6.Join();
-
-            Console.WriteLine("\n\nBütün islemler tamamlandi. .txt dosyalarini kontrol et!");
+            Console.WriteLine("\n\n=== TÜM DOSYALAR İŞLENDİ. Program Kapatılıyor. ===");
         }
-
-        // --- YARDIMCI FONKSİYONLAR ---
 
         static List<Process> CSVOku(string path)
         {
             var liste = new List<Process>();
             var satirlar = File.ReadAllLines(path);
-            for (int i = 0; i < satirlar.Length; i++)
+            
+            for (int i = 1; i < satirlar.Length; i++)
             {
-                var parcalar = satirlar[i].Split(','); // Ayraca dikkat (virgül veya noktalı virgül)
-                if (parcalar.Length >= 3)
+                var parcalar = satirlar[i].Split(','); 
+                if (parcalar.Length >= 4)
                 {
                     try {
                         var p = new Process();
                         p.ID = parcalar[0];
                         p.ArrivalTime = double.Parse(parcalar[1], CultureInfo.InvariantCulture);
                         p.BurstTime = double.Parse(parcalar[2], CultureInfo.InvariantCulture);
-                        p.Priority = parcalar.Length > 3 ? int.Parse(parcalar[3]) : 0;
+                        
+                        string priorityText = parcalar[3].Trim().ToLower();
+                        if (priorityText == "high") p.Priority = 1;      
+                        else if (priorityText == "normal") p.Priority = 2;
+                        else p.Priority = 3;                             
+
                         p.RemainingTime = p.BurstTime;
                         liste.Add(p);
                     } catch { }
@@ -97,8 +101,7 @@ namespace IsletimSistemleriOdev
             return kaynak.Select(p => p.Clone()).ToList();
         }
 
-        // --- 1. FCFS ALGORİTMASI ---
-        static void Run_FCFS(List<Process> processes)
+        static void Run_FCFS(List<Process> processes, string outputFolder)
         {
             double time = 0;
             processes = processes.OrderBy(p => p.ArrivalTime).ToList();
@@ -113,12 +116,10 @@ namespace IsletimSistemleriOdev
                 p.TurnaroundTime = p.CompletionTime - p.ArrivalTime;
                 p.WaitingTime = p.TurnaroundTime - p.BurstTime;
             }
-            // FCFS'de Context Switch 0 kabul edilir veya ihmal edilir
-            SonuclariYazdir(processes, "FCFS", 0);
+            SonuclariYazdir(processes, "FCFS", 0, outputFolder);
         }
 
-        // --- 2. PREEMPTIVE (KESMELİ) MOTOR (SJF & PRIORITY) ---
-        static void Run_Preemptive_Simulation(List<Process> tumSurecler, int type) 
+        static void Run_Preemptive_Simulation(List<Process> tumSurecler, int type, string outputFolder) 
         {
             double currentTime = 0;
             double contextSwitchCost = 0.001;
@@ -143,9 +144,9 @@ namespace IsletimSistemleriOdev
                 Process selectedProcess = null;
                 if (readyQueue.Count > 0)
                 {
-                    if (type == 1) // SJF
+                    if (type == 1) 
                         selectedProcess = readyQueue.OrderBy(p => p.RemainingTime).ThenBy(p => p.ArrivalTime).First();
-                    else // Priority
+                    else 
                         selectedProcess = readyQueue.OrderBy(p => p.Priority).ThenBy(p => p.ArrivalTime).First();
                 }
 
@@ -162,7 +163,6 @@ namespace IsletimSistemleriOdev
                     double timeStep = 1.0; 
                     if (currentProcess.RemainingTime < timeStep) timeStep = currentProcess.RemainingTime;
                     
-                    // Kesme kontrolü için hassas zaman ilerletme
                     if (tumSurecler.Count > 0)
                     {
                         double nextArrival = tumSurecler.Min(p => p.ArrivalTime);
@@ -193,11 +193,10 @@ namespace IsletimSistemleriOdev
                     }
                 }
             }
-            SonuclariYazdir(finishedQueue, algoName, contextSwitchCount);
+            SonuclariYazdir(finishedQueue, algoName, contextSwitchCount, outputFolder);
         }
 
-        // --- 3. ROUND ROBIN ALGORİTMASI ---
-        static void Run_RoundRobin(List<Process> tumSurecler, int quantum)
+        static void Run_RoundRobin(List<Process> tumSurecler, int quantum, string outputFolder)
         {
             double currentTime = 0;
             double contextSwitchCost = 0.001; 
@@ -232,7 +231,6 @@ namespace IsletimSistemleriOdev
                 currentProcess = readyQueue.Dequeue();
                 if (currentProcess.StartTime == -1) currentProcess.StartTime = currentTime;
 
-                // Basit CS mantığı
                 if (readyQueue.Count > 0 || processIndex < tumSurecler.Count)
                 {
                      currentTime += contextSwitchCost;
@@ -261,11 +259,10 @@ namespace IsletimSistemleriOdev
                     readyQueue.Enqueue(currentProcess);
                 }
             }
-            SonuclariYazdir(finishedQueue, "Round Robin", contextSwitchCount);
+            SonuclariYazdir(finishedQueue, "Round Robin", contextSwitchCount, outputFolder);
         }
 
-        // --- 4. NON-PREEMPTIVE (KESMESİZ) MOTOR ---
-        static void Run_NonPreemptive_Simulation(List<Process> tumSurecler, int type)
+        static void Run_NonPreemptive_Simulation(List<Process> tumSurecler, int type, string outputFolder)
         {
             string algoName = (type == 1) ? "SJF Non-Preemptive" : "Priority Non-Preemptive";
             double currentTime = 0;
@@ -314,13 +311,11 @@ namespace IsletimSistemleriOdev
                     if (gelmemisler.Count > 0) currentTime = gelmemisler.Min(p => p.ArrivalTime);
                 }
             }
-            SonuclariYazdir(finishedQueue, algoName, contextSwitchCount);
+            SonuclariYazdir(finishedQueue, algoName, contextSwitchCount, outputFolder);
         }
 
-        // --- SONUÇ YAZDIRMA VE RAPORLAMA ---
-        static void SonuclariYazdir(List<Process> bitenler, string algoritmaAdi, int csSayisi)
+        static void SonuclariYazdir(List<Process> bitenler, string algoritmaAdi, int csSayisi, string outputFolder)
         {
-            // Lock mekanizması (Threading sırasında dosya çakışmasın diye)
             lock(Console.Out) 
             {
                 double avgWait = bitenler.Count > 0 ? bitenler.Average(p => p.WaitingTime) : 0;
@@ -338,11 +333,13 @@ namespace IsletimSistemleriOdev
                 double verimlilik = toplamBurst / (sonBitisZamani + (csSayisi * 0.001)); 
                 if (verimlilik > 1.0) verimlilik = 1.0;
 
-                string dosyaAdi = algoritmaAdi.Replace(" ", "_") + ".txt";
+                Directory.CreateDirectory(outputFolder);
                 
-                // Dosyaya Yaz
+                string dosyaAdi = algoritmaAdi.Replace(" ", "_") + ".txt";
+                string tamYol = Path.Combine(outputFolder, dosyaAdi);
+                
                 try {
-                    using (StreamWriter sw = new StreamWriter(dosyaAdi))
+                    using (StreamWriter sw = new StreamWriter(tamYol))
                     {
                         sw.WriteLine($"ALGORITMA: {algoritmaAdi}");
                         sw.WriteLine("--------------------------------------------------");
@@ -359,9 +356,8 @@ namespace IsletimSistemleriOdev
                         sw.WriteLine($"e) CPU Verimliligi: %{verimlilik*100:F2}");
                         sw.WriteLine($"f) Toplam Baglam Degistirme (CS): {csSayisi}");
                     }
-                    Console.WriteLine($"{algoritmaAdi} tamamlandi -> {dosyaAdi}");
                 } catch {
-                    Console.WriteLine($"HATA: {dosyaAdi} dosyasina yazilamadi!");
+                    Console.WriteLine($"HATA: {tamYol} dosyasina yazilamadi!");
                 }
             }
         }
